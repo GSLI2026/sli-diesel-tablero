@@ -654,9 +654,10 @@ function renderCombustible(){
     <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)}</div><div class="sub">Lts ECM − Lts Edenred</div></div>
     <div class="kpi alert"><div class="label">Impacto monetario</div><div class="value">${fmtMoney(impacto)}</div><div class="sub">@$26/lt estimado sobre déficit</div></div>
     <div class="kpi"><div class="label">Litros Edenred</div><div class="value">${fmtNum(totalEdenred,0)}</div><div class="sub">Total del filtro actual</div></div>
-    <div class="kpi"><div class="label">Litros ECM</div><div class="value">${fmtNum(totalEcm,0)}</div><div class="sub">Lecturas ECM reales</div>
-      ${(document.getElementById('fSucursal').value==='Todas' || document.getElementById('fSucursal').value==='Manzanillo') ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);font-size:11px;color:#1c4d82;font-weight:700;">❄️ Rifer Manzanillo: ${fmtNum(RIFER_MANZANILLO.lts,0)} lt (${fmtMoney(RIFER_MANZANILLO.monto)})</div>` : ''}
-    </div>
+    <div class="kpi"><div class="label">Litros ECM</div><div class="value">${fmtNum(totalEcm,0)}</div><div class="sub">Lecturas ECM reales</div></div>
+    ${(document.getElementById('fSucursal').value==='Todas' || document.getElementById('fSucursal').value==='Manzanillo') ? `
+    <div class="kpi"><div class="label">❄️ Diesel Rifer (Manzanillo)</div><div class="value">${fmtNum(RIFER_MANZANILLO.lts,0)}</div><div class="sub">lt · ${fmtMoney(RIFER_MANZANILLO.monto)} · No proviene del ECM del tractocamión</div></div>
+    ` : ''}
     <div class="kpi"><div class="label">Rendimiento prom.</div><div class="value">${rendProm? fmtNum(rendProm,2):'—'}</div><div class="sub">km/lt (ECM)</div></div>
     <div class="kpi"><div class="label">Número de ECM</div><div class="value">${unidadesConEcm}</div><div class="sub">Unidades con lectura ECM real</div></div>
     <div class="kpi"><div class="label">Número de Unidades</div><div class="value">${unidadesTotal}</div><div class="sub">Unidades únicas en el filtro actual</div></div>
