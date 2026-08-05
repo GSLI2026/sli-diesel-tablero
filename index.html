@@ -1327,51 +1327,34 @@ function agregarKpiTileRNS(slide, x, y, w, h, valor, etiqueta, estilo, colorAcen
   slide.addText(etiqueta.toUpperCase(), {x:x+0.1,y:y+h*0.62,w:w-0.2,h:h*0.36,fontSize:8.5,bold:true,color:GRIS,align:'center',valign:'top',fontFace:'Arial',charSpacing:0.3});
 }
 
-// Umbral de filas de datos a partir del cual una tabla de unidades se corta en 2 columnas
-// para que no se salga del slide.
-const UMBRAL_FILAS_TABLA_RNS = 20;
-
-function filaUnidadRNS(u, i, estilo){
-  const {ROJO, ROJO_BG, VERDE, VERDE_BG, cellOpts} = estilo;
-  const bg = i%2? 'F5F7FA':'FFFFFF';
-  const difBg = u.dif3<0 ? ROJO_BG : VERDE_BG;
-  const obj = objetivoUnidad(u.unidad);
-  const rendColor = u.rend==null || !obj ? '444444' : (u.rend>=obj.rendObjetivo ? VERDE : ROJO);
-  return [
-    {text:(u.dif3<0?'⚠ ':'')+u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
-    {text:fmtNum(u.km,0),options:{...cellOpts, fill:{color:bg}}},
-    {text:fmtNum(u.ltsEcm,0),options:{...cellOpts, fill:{color:bg}}},
-    {text:fmtNum(u.ltsEden,0),options:{...cellOpts, fill:{color:bg}}},
-    {text:fmtNum(u.su3,0),options:{...cellOpts, fill:{color:bg}}},
-    {text:fmtNum(u.dif3,0),options:{...cellOpts,color:u.dif3<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
-    {text:u.rend!=null?fmtNum(u.rend,2):'—',options:{...cellOpts, color:rendColor, bold:true, fill:{color:bg}}},
-  ];
-}
-
 function crearSlideKmLtRNS(pptx, grupo, estilo, pag){
-  const {AZUL, GRIS, headerOpts, totalOpts, pieTxt, totalPaginas} = estilo;
+  const {AZUL, GRIS, ROJO, ROJO_BG, VERDE, VERDE_BG} = estilo;
+  const {headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
   const lista = grupo.unidades;
   const nIncidencias = lista.filter(u=>u.dif3<0).length;
   const slide = pptx.addSlide();
   agregarEncabezadoRNS(slide, `LITROS ECM VS EDENRED — ${grupo.nombre.toUpperCase()}`, estilo, {count:nIncidencias, label:'INCIDENCIAS'});
   const tot = lista.reduce((a,u)=>({km:a.km+u.km, ltsEcm:a.ltsEcm+u.ltsEcm, ltsEden:a.ltsEden+u.ltsEden, su3:a.su3+u.su3, dif3:a.dif3+u.dif3}), {km:0,ltsEcm:0,ltsEden:0,su3:0,dif3:0});
-  const encabezado = ['Unidad','Km ECM','Lt ECM','Lt Edenred','3% Edenred','Dif Lt -3%','Rendimiento'].map(t=>({text:t,options:headerOpts}));
-  const filaTotal = ['Total general', fmtNum(tot.km,0), fmtNum(tot.ltsEcm,0), fmtNum(tot.ltsEden,0), fmtNum(tot.su3,0), fmtNum(tot.dif3,0), '—'].map(t=>({text:String(t),options:totalOpts}));
-
-  if (lista.length > UMBRAL_FILAS_TABLA_RNS){
-    // Lista larga: se corta en 2 columnas para que no se salga del slide.
-    const mitad = Math.ceil(lista.length/2);
-    const izq = lista.slice(0, mitad);
-    const der = lista.slice(mitad);
-    const fsChica = 7.2;
-    const filasIzq = [encabezado, ...izq.map((u,i)=>filaUnidadRNS(u,i,estilo))];
-    const filasDer = [encabezado, ...der.map((u,i)=>filaUnidadRNS(u,i,estilo)), filaTotal];
-    slide.addTable(filasIzq, {x:0.4,y:1.05,w:3.7,fontSize:fsChica,border:{type:'solid',color:'DDDDDD',pt:0.5},autoPage:false});
-    slide.addTable(filasDer, {x:4.3,y:1.05,w:3.7,fontSize:fsChica,border:{type:'solid',color:'DDDDDD',pt:0.5},autoPage:false});
-  } else {
-    const filas = [encabezado, ...lista.map((u,i)=>filaUnidadRNS(u,i,estilo)), filaTotal];
-    slide.addTable(filas, {x:0.4,y:1.05,w:7.6,fontSize:8.5,border:{type:'solid',color:'DDDDDD',pt:0.5},autoPage:false});
-  }
+  const filas = [
+    ['Unidad','Km ECM','Lt ECM','Lt Edenred','3% Edenred','Dif Lt -3%','Rendimiento'].map(t=>({text:t,options:headerOpts})),
+    ...lista.map((u,i)=>{
+      const bg = i%2? 'F5F7FA':'FFFFFF';
+      const difBg = u.dif3<0 ? ROJO_BG : VERDE_BG;
+      const obj = objetivoUnidad(u.unidad);
+      const rendColor = u.rend==null || !obj ? '444444' : (u.rend>=obj.rendObjetivo ? VERDE : ROJO);
+      return [
+        {text:(u.dif3<0?'⚠ ':'')+u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
+        {text:fmtNum(u.km,0),options:{...cellOpts, fill:{color:bg}}},
+        {text:fmtNum(u.ltsEcm,0),options:{...cellOpts, fill:{color:bg}}},
+        {text:fmtNum(u.ltsEden,0),options:{...cellOpts, fill:{color:bg}}},
+        {text:fmtNum(u.su3,0),options:{...cellOpts, fill:{color:bg}}},
+        {text:fmtNum(u.dif3,0),options:{...cellOpts,color:u.dif3<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
+        {text:u.rend!=null?fmtNum(u.rend,2):'—',options:{...cellOpts, color:rendColor, bold:true, fill:{color:bg}}},
+      ];
+    }),
+    ['Total general', fmtNum(tot.km,0), fmtNum(tot.ltsEcm,0), fmtNum(tot.ltsEden,0), fmtNum(tot.su3,0), fmtNum(tot.dif3,0), '—'].map(t=>({text:String(t),options:totalOpts})),
+  ];
+  slide.addTable(filas, {x:0.4,y:1.05,w:7.6,fontSize:8.5,border:{type:'solid',color:'DDDDDD',pt:0.5},autoPage:false});
   if (lista.length){
     slide.addChart(pptx.ChartType.bar, [
       {name:'Lt ECM', labels:lista.map(u=>u.unidad), values:lista.map(u=>Math.round(u.ltsEcm))},
@@ -1394,37 +1377,26 @@ function crearSlideRDCRNS(pptx, grupo, estilo, pag){
     const obj = objetivoUnidad(u.unidad);
     porTipo[obj.tipo].push({unidad:u.unidad, meta:obj.rendObjetivo, real:u.rend, dif:u.rend-obj.rendObjetivo});
   });
-  const UMBRAL_FILAS_RDC_RNS = 15;
-  function filaRDC(v, i){
-    const bg = i%2?'F5F7FA':'FFFFFF';
-    const difBg = v.dif<0 ? ROJO_BG : VERDE_BG;
-    return [
-      {text:(v.dif<0?'⚠ ':'')+v.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
-      {text:fmtNum(v.meta,2),options:{...cellOpts, fill:{color:bg}}},
-      {text:fmtNum(v.real,2),options:{...cellOpts, color:v.dif<0?ROJO:VERDE, bold:true, fill:{color:bg}}},
-      {text:fmtNum(v.dif,2),options:{...cellOpts,color:v.dif<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
-    ];
-  }
   function tablaTipo(lst, titulo, x){
     const prom = lst.length ? lst.reduce((s,v)=>s+v.real,0)/lst.length : 0;
     const promMeta = lst.length ? lst.reduce((s,v)=>s+v.meta,0)/lst.length : 0;
-    const encabezado = ['Unidad','Meta','Real','Dif'].map(t=>({text:t,options:headerOpts}));
-    const filaTotal = ['Total general', fmtNum(promMeta,2), fmtNum(prom,2), fmtNum(prom-promMeta,2)].map(t=>({text:String(t),options:totalOpts}));
+    const filas = [
+      ['Unidad','Meta','Real','Dif'].map(t=>({text:t,options:headerOpts})),
+      ...lst.map((v,i)=>{
+        const bg = i%2?'F5F7FA':'FFFFFF';
+        const difBg = v.dif<0 ? ROJO_BG : VERDE_BG;
+        return [
+          {text:(v.dif<0?'⚠ ':'')+v.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
+          {text:fmtNum(v.meta,2),options:{...cellOpts, fill:{color:bg}}},
+          {text:fmtNum(v.real,2),options:{...cellOpts, color:v.dif<0?ROJO:VERDE, bold:true, fill:{color:bg}}},
+          {text:fmtNum(v.dif,2),options:{...cellOpts,color:v.dif<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
+        ];
+      }),
+      ['Total general', fmtNum(promMeta,2), fmtNum(prom,2), fmtNum(prom-promMeta,2)].map(t=>({text:String(t),options:totalOpts})),
+    ];
     slide.addShape('rect', {x,y:0.98,w:3.9,h:0.32,fill:{color:MORADO},line:{type:'none'}});
     slide.addText(titulo, {x, y:0.98, w:3.9, h:0.32, fontSize:11, bold:true, color:'FFFFFF', align:'center', valign:'middle', fontFace:'Arial'});
-    if (lst.length > UMBRAL_FILAS_RDC_RNS){
-      // Lista larga: se corta en 2 sub-columnas para que no se salga del slide.
-      const mitad = Math.ceil(lst.length/2);
-      const izq = lst.slice(0, mitad), der = lst.slice(mitad);
-      const wMitad = 1.85, fsChica = 7;
-      const filasIzq = [encabezado, ...izq.map(filaRDC)];
-      const filasDer = [encabezado, ...der.map(filaRDC), filaTotal];
-      slide.addTable(filasIzq, {x, y:1.38, w:wMitad, fontSize:fsChica, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
-      slide.addTable(filasDer, {x:x+wMitad+0.2, y:1.38, w:wMitad, fontSize:fsChica, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
-    } else {
-      const filas = [encabezado, ...lst.map(filaRDC), filaTotal];
-      slide.addTable(filas, {x, y:1.38, w:3.9, fontSize:8.5, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
-    }
+    slide.addTable(filas, {x, y:1.38, w:3.9, fontSize:8.5, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
   }
   tablaTipo(porTipo.Full, `FULL (meta 1.8 km/L) — ${porTipo.Full.length} uds`, 0.4);
   tablaTipo(porTipo.Sencillo, `SENCILLO (meta 2.1 km/L) — ${porTipo.Sencillo.length} uds`, 4.5);
