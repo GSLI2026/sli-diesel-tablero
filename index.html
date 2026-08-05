@@ -1293,13 +1293,21 @@ function agruparPorSucursalRNS(porUnidad, sucSel){
   return orden.map(s=>({nombre:s, unidades:porUnidad.filter(u=>u.sucursal===s)}));
 }
 
-// Encabezado ejecutivo: barra azul + franja de acento roja + logo + título.
-function agregarEncabezadoRNS(slide, titulo, estilo){
-  const {AZUL, ROJO} = estilo;
+// Encabezado ejecutivo: barra azul + franja de acento roja + logo + título + chip de incidencias.
+function agregarEncabezadoRNS(slide, titulo, estilo, badge){
+  const {AZUL, ROJO, VERDE} = estilo;
   slide.addShape('rect', {x:0,y:0,w:13.333,h:0.85,fill:{color:AZUL},line:{type:'none'},shadow:{type:'outer',color:'000000',opacity:0.35,blur:6,offset:2,angle:90}});
   slide.addShape('rect', {x:0,y:0.85,w:13.333,h:0.05,fill:{color:ROJO},line:{type:'none'}});
   slide.addImage({data:GSLI_LOGO_B64, x:11.45,y:0.13,w:1.6,h:0.61});
-  slide.addText(titulo, {x:0.45,y:0,w:10.6,h:0.85,fontSize:18,bold:true,color:'FFFFFF',valign:'middle',fontFace:'Arial',charSpacing:0.5});
+  const tituloW = badge ? 7.9 : 10.6;
+  slide.addText(titulo, {x:0.45,y:0,w:tituloW,h:0.85,fontSize:18,bold:true,color:'FFFFFF',valign:'middle',fontFace:'Arial',charSpacing:0.5});
+  if (badge){
+    const esIncidencia = badge.count > 0;
+    const colorPill = esIncidencia ? ROJO : VERDE;
+    const texto = esIncidencia ? `⚠ ${badge.count} ${badge.label}` : `✓ SIN ${badge.label}`;
+    slide.addShape('roundRect', {x:8.55,y:0.2,w:2.75,h:0.46,rectRadius:0.23,fill:{color:colorPill},line:{color:'FFFFFF',width:0.75}});
+    slide.addText(texto, {x:8.55,y:0.2,w:2.75,h:0.46,fontSize:10.5,bold:true,color:'FFFFFF',align:'center',valign:'middle',fontFace:'Arial'});
+  }
 }
 
 // Pie ejecutivo: branding + folio de página "actual / total".
@@ -1320,23 +1328,28 @@ function agregarKpiTileRNS(slide, x, y, w, h, valor, etiqueta, estilo, colorAcen
 }
 
 function crearSlideKmLtRNS(pptx, grupo, estilo, pag){
-  const {AZUL, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
+  const {AZUL, GRIS, ROJO, ROJO_BG, VERDE, VERDE_BG} = estilo;
+  const {headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
   const lista = grupo.unidades;
+  const nIncidencias = lista.filter(u=>u.dif3<0).length;
   const slide = pptx.addSlide();
-  agregarEncabezadoRNS(slide, `LITROS ECM VS EDENRED — ${grupo.nombre.toUpperCase()}`, estilo);
+  agregarEncabezadoRNS(slide, `LITROS ECM VS EDENRED — ${grupo.nombre.toUpperCase()}`, estilo, {count:nIncidencias, label:'INCIDENCIAS'});
   const tot = lista.reduce((a,u)=>({km:a.km+u.km, ltsEcm:a.ltsEcm+u.ltsEcm, ltsEden:a.ltsEden+u.ltsEden, su3:a.su3+u.su3, dif3:a.dif3+u.dif3}), {km:0,ltsEcm:0,ltsEden:0,su3:0,dif3:0});
   const filas = [
     ['Unidad','Km ECM','Lt ECM','Lt Edenred','3% Edenred','Dif Lt -3%','Rendimiento'].map(t=>({text:t,options:headerOpts})),
     ...lista.map((u,i)=>{
       const bg = i%2? 'F5F7FA':'FFFFFF';
+      const difBg = u.dif3<0 ? ROJO_BG : VERDE_BG;
+      const obj = objetivoUnidad(u.unidad);
+      const rendColor = u.rend==null || !obj ? '444444' : (u.rend>=obj.rendObjetivo ? VERDE : ROJO);
       return [
-        {text:u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
+        {text:(u.dif3<0?'⚠ ':'')+u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
         {text:fmtNum(u.km,0),options:{...cellOpts, fill:{color:bg}}},
         {text:fmtNum(u.ltsEcm,0),options:{...cellOpts, fill:{color:bg}}},
         {text:fmtNum(u.ltsEden,0),options:{...cellOpts, fill:{color:bg}}},
         {text:fmtNum(u.su3,0),options:{...cellOpts, fill:{color:bg}}},
-        {text:fmtNum(u.dif3,0),options:{...cellOpts,color:u.dif3<0?ROJO:VERDE,bold:true, fill:{color:bg}}},
-        {text:u.rend!=null?fmtNum(u.rend,2):'—',options:{...cellOpts, fill:{color:bg}}},
+        {text:fmtNum(u.dif3,0),options:{...cellOpts,color:u.dif3<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
+        {text:u.rend!=null?fmtNum(u.rend,2):'—',options:{...cellOpts, color:rendColor, bold:true, fill:{color:bg}}},
       ];
     }),
     ['Total general', fmtNum(tot.km,0), fmtNum(tot.ltsEcm,0), fmtNum(tot.ltsEden,0), fmtNum(tot.su3,0), fmtNum(tot.dif3,0), '—'].map(t=>({text:String(t),options:totalOpts})),
@@ -1352,11 +1365,13 @@ function crearSlideKmLtRNS(pptx, grupo, estilo, pag){
 }
 
 function crearSlideRDCRNS(pptx, grupo, estilo, pag){
-  const {AZUL, MORADO, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
+  const {AZUL, MORADO, GRIS, ROJO, ROJO_BG, VERDE, VERDE_BG} = estilo;
+  const {headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
   const lista = grupo.unidades;
   const slide = pptx.addSlide();
-  agregarEncabezadoRNS(slide, `RENDIMIENTO VS OBJETIVO — ${grupo.nombre.toUpperCase()}`, estilo);
   const conObjetivo = lista.filter(u=>u.rend!=null && objetivoUnidad(u.unidad));
+  const nBajoMeta = conObjetivo.filter(u=>u.rend < objetivoUnidad(u.unidad).rendObjetivo).length;
+  agregarEncabezadoRNS(slide, `RENDIMIENTO VS OBJETIVO — ${grupo.nombre.toUpperCase()}`, estilo, {count:nBajoMeta, label:'BAJO META'});
   const porTipo = {Full:[], Sencillo:[]};
   conObjetivo.forEach(u=>{
     const obj = objetivoUnidad(u.unidad);
@@ -1369,11 +1384,12 @@ function crearSlideRDCRNS(pptx, grupo, estilo, pag){
       ['Unidad','Meta','Real','Dif'].map(t=>({text:t,options:headerOpts})),
       ...lst.map((v,i)=>{
         const bg = i%2?'F5F7FA':'FFFFFF';
+        const difBg = v.dif<0 ? ROJO_BG : VERDE_BG;
         return [
-          {text:v.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
+          {text:(v.dif<0?'⚠ ':'')+v.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
           {text:fmtNum(v.meta,2),options:{...cellOpts, fill:{color:bg}}},
-          {text:fmtNum(v.real,2),options:{...cellOpts, fill:{color:bg}}},
-          {text:fmtNum(v.dif,2),options:{...cellOpts,color:v.dif<0?ROJO:VERDE,bold:true, fill:{color:bg}}},
+          {text:fmtNum(v.real,2),options:{...cellOpts, color:v.dif<0?ROJO:VERDE, bold:true, fill:{color:bg}}},
+          {text:fmtNum(v.dif,2),options:{...cellOpts,color:v.dif<0?ROJO:VERDE,bold:true, fill:{color:difBg}}},
         ];
       }),
       ['Total general', fmtNum(promMeta,2), fmtNum(prom,2), fmtNum(prom-promMeta,2)].map(t=>({text:String(t),options:totalOpts})),
@@ -1403,6 +1419,7 @@ function descargarInformeRNS(){
   if (!rows.length){ alert('No hay datos de Combustible para el filtro actual — ajusta los filtros e intenta de nuevo.'); return; }
 
   const AZUL='1C4D82', MORADO='7A3B8F', GRIS='5C6B7A', ROJO='C8102E', VERDE='1E8E5A', DORADO='C99A2E';
+  const ROJO_BG='FBDCDA', VERDE_BG='DCF2E3';
   const hoy = new Date();
   const MESES_LARGO = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const fechaTxt = `${hoy.getDate()} de ${MESES_LARGO[hoy.getMonth()].replace(/^./,c=>c.toUpperCase())} ${hoy.getFullYear()}`;
@@ -1430,7 +1447,7 @@ function descargarInformeRNS(){
   const cellOpts = {fontSize:8.5, align:'center', valign:'middle', fontFace:'Arial'};
   const totalOpts = {...cellOpts, bold:true, color:'FFFFFF', fill:{color:AZUL}};
   const totalPaginas = 4 + 2*grupos.length; // portada + resumen + calendario + 2xgrupo + pto-ralenti
-  const estilo = {AZUL, MORADO, GRIS, ROJO, VERDE, DORADO, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas};
+  const estilo = {AZUL, MORADO, GRIS, ROJO, ROJO_BG, VERDE, VERDE_BG, DORADO, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas};
   let pag = 0;
 
   // ---- Slide 1: portada ejecutiva ----
@@ -1451,7 +1468,8 @@ function descargarInformeRNS(){
   // ---- Slide 2: resumen ejecutivo (KPIs globales del filtro actual) ----
   pag++;
   const s2 = pptx.addSlide();
-  agregarEncabezadoRNS(s2, 'RESUMEN EJECUTIVO', estilo);
+  const nIncidenciasTotal = porUnidad.filter(u=>u.dif3<0).length;
+  agregarEncabezadoRNS(s2, 'RESUMEN EJECUTIVO', estilo, {count:nIncidenciasTotal, label:'INCIDENCIAS'});
   const kmTotal = porUnidad.reduce((a,u)=>a+u.km,0);
   const ltsEcmTotal = porUnidad.reduce((a,u)=>a+u.ltsEcm,0);
   const ltsEdenTotal = porUnidad.reduce((a,u)=>a+u.ltsEden,0);
@@ -1489,6 +1507,34 @@ function descargarInformeRNS(){
     ];
     s2.addTable(filasResumen, {x:startX+tileW+gap, y:tileY2, w: tileW*3+gap*2, h:tileH, fontSize:9, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
   }
+
+  // ---- Banner de incidencias: top unidades con mayor desviación de litros ----
+  const incidenciasBoxY = tileY2 + tileH + 0.25;
+  const topIncidencias = porUnidad.filter(u=>u.dif3<0).sort((a,b)=>a.dif3-b.dif3).slice(0,5);
+  if (topIncidencias.length){
+    s2.addShape('roundRect', {x:0.4,y:incidenciasBoxY,w:12.53,h:1.75,rectRadius:0.05,fill:{color:'FFF5F5'},line:{color:ROJO,width:1.25}});
+    s2.addShape('rect', {x:0.4,y:incidenciasBoxY,w:0.12,h:1.75,fill:{color:ROJO},line:{type:'none'}});
+    s2.addText(`⚠ TOP ${topIncidencias.length} UNIDADES CON MAYOR DESVIACIÓN (LT ECM VS EDENRED)`, {x:0.7,y:incidenciasBoxY+0.08,w:11.9,h:0.32,fontSize:11.5,bold:true,color:ROJO,fontFace:'Arial'});
+    const filasInc = [
+      ['Unidad','Sucursal','Km ECM','Lt ECM','Lt Edenred','Dif Lt -3%'].map(t=>({text:t,options:{...headerOpts, fill:{color:ROJO}, fontSize:8.5}})),
+      ...topIncidencias.map((u,i)=>{
+        const bg = i%2?'FDEAEA':'FFFFFF';
+        return [
+          {text:u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
+          {text:u.sucursal||'—',options:{...cellOpts, fill:{color:bg}}},
+          {text:fmtNum(u.km,0),options:{...cellOpts, fill:{color:bg}}},
+          {text:fmtNum(u.ltsEcm,0),options:{...cellOpts, fill:{color:bg}}},
+          {text:fmtNum(u.ltsEden,0),options:{...cellOpts, fill:{color:bg}}},
+          {text:fmtNum(u.dif3,0),options:{...cellOpts,color:ROJO,bold:true, fill:{color:bg}}},
+        ];
+      }),
+    ];
+    s2.addTable(filasInc, {x:0.7,y:incidenciasBoxY+0.42,w:12,fontSize:8.5,border:{type:'solid',color:'F5C1C8',pt:0.5},autoPage:false});
+  } else {
+    s2.addShape('roundRect', {x:0.4,y:incidenciasBoxY,w:12.53,h:0.6,rectRadius:0.05,fill:{color:'F0FAF3'},line:{color:VERDE,width:1.25}});
+    s2.addText('✓ Sin incidencias de desviación de litros (Dif Lt -3%) para el filtro actual.', {x:0.7,y:incidenciasBoxY,w:11.9,h:0.6,fontSize:12,bold:true,color:VERDE,valign:'middle',fontFace:'Arial'});
+  }
+
   agregarPieRNS(s2, pieTxt, estilo, pag, totalPaginas);
 
   // ---- Slide 3: calendario de reseteos (requiere carga semanal) ----
