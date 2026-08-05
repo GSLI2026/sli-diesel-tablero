@@ -1293,28 +1293,44 @@ function agruparPorSucursalRNS(porUnidad, sucSel){
   return orden.map(s=>({nombre:s, unidades:porUnidad.filter(u=>u.sucursal===s)}));
 }
 
-function agregarEncabezadoRNS(slide, titulo, AZUL){
-  slide.addShape('rect', {x:0,y:0,w:13.333,h:0.85,fill:{color:AZUL},line:{type:'none'}});
-  slide.addImage({data:GSLI_LOGO_B64, x:11.55,y:0.14,w:1.5,h:0.57});
-  slide.addText(titulo, {x:0.4,y:0,w:10.8,h:0.85,fontSize:17,bold:true,color:'FFFFFF',valign:'middle',fontFace:'Arial'});
+// Encabezado ejecutivo: barra azul + franja de acento roja + logo + título.
+function agregarEncabezadoRNS(slide, titulo, estilo){
+  const {AZUL, ROJO} = estilo;
+  slide.addShape('rect', {x:0,y:0,w:13.333,h:0.85,fill:{color:AZUL},line:{type:'none'},shadow:{type:'outer',color:'000000',opacity:0.35,blur:6,offset:2,angle:90}});
+  slide.addShape('rect', {x:0,y:0.85,w:13.333,h:0.05,fill:{color:ROJO},line:{type:'none'}});
+  slide.addImage({data:GSLI_LOGO_B64, x:11.45,y:0.13,w:1.6,h:0.61});
+  slide.addText(titulo, {x:0.45,y:0,w:10.6,h:0.85,fontSize:18,bold:true,color:'FFFFFF',valign:'middle',fontFace:'Arial',charSpacing:0.5});
 }
 
-function agregarPieRNS(slide, texto, GRIS){
-  slide.addText(texto, {x:0.4,y:7.15,w:12.5,h:0.28,fontSize:8,color:GRIS,align:'left',fontFace:'Arial'});
+// Pie ejecutivo: branding + folio de página "actual / total".
+function agregarPieRNS(slide, texto, estilo, pagina, totalPaginas){
+  const {GRIS, AZUL} = estilo;
+  slide.addShape('line', {x:0.4,y:7.08,w:12.53,h:0,line:{color:'DDDDDD',width:0.75}});
+  slide.addText(texto, {x:0.4,y:7.13,w:11,h:0.3,fontSize:8,color:GRIS,align:'left',fontFace:'Arial'});
+  slide.addText(`${pagina} / ${totalPaginas}`, {x:11.6,y:7.13,w:1.33,h:0.3,fontSize:8,bold:true,color:AZUL,align:'right',fontFace:'Arial'});
 }
 
-function crearSlideKmLtRNS(pptx, grupo, estilo){
-  const {AZUL, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt} = estilo;
+// Tarjeta KPI (tile) ejecutiva: número grande + etiqueta, con sombra y barra de acento.
+function agregarKpiTileRNS(slide, x, y, w, h, valor, etiqueta, estilo, colorAcento){
+  const {GRIS} = estilo;
+  slide.addShape('roundRect', {x,y,w,h,rectRadius:0.06,fill:{color:'FFFFFF'},line:{color:'E3E7EC',width:1},shadow:{type:'outer',color:'000000',opacity:0.18,blur:5,offset:2,angle:90}});
+  slide.addShape('roundRect', {x,y,w:0.08,h,rectRadius:0.04,fill:{color:colorAcento},line:{type:'none'}});
+  slide.addText(String(valor), {x:x+0.15,y:y+0.1,w:w-0.3,h:h*0.58,fontSize:22,bold:true,color:colorAcento,align:'center',valign:'bottom',fontFace:'Arial'});
+  slide.addText(etiqueta.toUpperCase(), {x:x+0.1,y:y+h*0.62,w:w-0.2,h:h*0.36,fontSize:8.5,bold:true,color:GRIS,align:'center',valign:'top',fontFace:'Arial',charSpacing:0.3});
+}
+
+function crearSlideKmLtRNS(pptx, grupo, estilo, pag){
+  const {AZUL, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
   const lista = grupo.unidades;
   const slide = pptx.addSlide();
-  agregarEncabezadoRNS(slide, `LITROS ECM VS EDENRED — ${grupo.nombre.toUpperCase()}`, AZUL);
+  agregarEncabezadoRNS(slide, `LITROS ECM VS EDENRED — ${grupo.nombre.toUpperCase()}`, estilo);
   const tot = lista.reduce((a,u)=>({km:a.km+u.km, ltsEcm:a.ltsEcm+u.ltsEcm, ltsEden:a.ltsEden+u.ltsEden, su3:a.su3+u.su3, dif3:a.dif3+u.dif3}), {km:0,ltsEcm:0,ltsEden:0,su3:0,dif3:0});
   const filas = [
     ['Unidad','Km ECM','Lt ECM','Lt Edenred','3% Edenred','Dif Lt -3%','Rendimiento'].map(t=>({text:t,options:headerOpts})),
     ...lista.map((u,i)=>{
       const bg = i%2? 'F5F7FA':'FFFFFF';
       return [
-        {text:u.unidad,options:{...cellOpts, fill:{color:bg}}},
+        {text:u.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
         {text:fmtNum(u.km,0),options:{...cellOpts, fill:{color:bg}}},
         {text:fmtNum(u.ltsEcm,0),options:{...cellOpts, fill:{color:bg}}},
         {text:fmtNum(u.ltsEden,0),options:{...cellOpts, fill:{color:bg}}},
@@ -1330,16 +1346,16 @@ function crearSlideKmLtRNS(pptx, grupo, estilo){
     slide.addChart(pptx.ChartType.bar, [
       {name:'Lt ECM', labels:lista.map(u=>u.unidad), values:lista.map(u=>Math.round(u.ltsEcm))},
       {name:'Lt Edenred', labels:lista.map(u=>u.unidad), values:lista.map(u=>Math.round(u.ltsEden))},
-    ], {x:8.2,y:1.05,w:4.7,h:5.9,barDir:'col',showLegend:true,legendPos:'b',showTitle:true,title:'Lt ECM vs Lt Edenred',titleFontSize:11,chartColors:[AZUL,'A8C5EC']});
+    ], {x:8.2,y:1.05,w:4.7,h:5.9,barDir:'col',showLegend:true,legendPos:'b',showTitle:true,title:'Lt ECM vs Lt Edenred',titleFontSize:11,titleColor:AZUL,titleBold:true,chartColors:[AZUL,'A8C5EC'],dataLabelColor:GRIS,catAxisLabelFontSize:7,valAxisLabelFontSize:8});
   }
-  agregarPieRNS(slide, pieTxt, GRIS);
+  agregarPieRNS(slide, pieTxt, estilo, pag, totalPaginas);
 }
 
-function crearSlideRDCRNS(pptx, grupo, estilo){
-  const {AZUL, MORADO, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt} = estilo;
+function crearSlideRDCRNS(pptx, grupo, estilo, pag){
+  const {AZUL, MORADO, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas} = estilo;
   const lista = grupo.unidades;
   const slide = pptx.addSlide();
-  agregarEncabezadoRNS(slide, `RENDIMIENTO VS OBJETIVO — ${grupo.nombre.toUpperCase()}`, AZUL);
+  agregarEncabezadoRNS(slide, `RENDIMIENTO VS OBJETIVO — ${grupo.nombre.toUpperCase()}`, estilo);
   const conObjetivo = lista.filter(u=>u.rend!=null && objetivoUnidad(u.unidad));
   const porTipo = {Full:[], Sencillo:[]};
   conObjetivo.forEach(u=>{
@@ -1354,7 +1370,7 @@ function crearSlideRDCRNS(pptx, grupo, estilo){
       ...lst.map((v,i)=>{
         const bg = i%2?'F5F7FA':'FFFFFF';
         return [
-          {text:v.unidad,options:{...cellOpts, fill:{color:bg}}},
+          {text:v.unidad,options:{...cellOpts, bold:true, fill:{color:bg}}},
           {text:fmtNum(v.meta,2),options:{...cellOpts, fill:{color:bg}}},
           {text:fmtNum(v.real,2),options:{...cellOpts, fill:{color:bg}}},
           {text:fmtNum(v.dif,2),options:{...cellOpts,color:v.dif<0?ROJO:VERDE,bold:true, fill:{color:bg}}},
@@ -1362,22 +1378,23 @@ function crearSlideRDCRNS(pptx, grupo, estilo){
       }),
       ['Total general', fmtNum(promMeta,2), fmtNum(prom,2), fmtNum(prom-promMeta,2)].map(t=>({text:String(t),options:totalOpts})),
     ];
-    slide.addText(titulo, {x, y:0.98, w:3.9, h:0.32, fontSize:11.5, bold:true, color:MORADO, fontFace:'Arial'});
-    slide.addTable(filas, {x, y:1.35, w:3.9, fontSize:8.5, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
+    slide.addShape('rect', {x,y:0.98,w:3.9,h:0.32,fill:{color:MORADO},line:{type:'none'}});
+    slide.addText(titulo, {x, y:0.98, w:3.9, h:0.32, fontSize:11, bold:true, color:'FFFFFF', align:'center', valign:'middle', fontFace:'Arial'});
+    slide.addTable(filas, {x, y:1.38, w:3.9, fontSize:8.5, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
   }
   tablaTipo(porTipo.Full, `FULL (meta 1.8 km/L) — ${porTipo.Full.length} uds`, 0.4);
   tablaTipo(porTipo.Sencillo, `SENCILLO (meta 2.1 km/L) — ${porTipo.Sencillo.length} uds`, 4.5);
   const sinTipo = lista.filter(u=>u.rend!=null && !objetivoUnidad(u.unidad)).length;
   if (sinTipo){
-    slide.addText(`${sinTipo} unidad(es) con rendimiento calculado no tienen tipo Full/Sencillo definido y no aparecen arriba.`, {x:0.4,y:6.75,w:8,h:0.35,fontSize:9.5,italic:true,color:'999999',fontFace:'Arial'});
+    slide.addText(`${sinTipo} unidad(es) con rendimiento calculado no tienen tipo Full/Sencillo definido y no aparecen arriba.`, {x:0.4,y:6.7,w:8,h:0.35,fontSize:9.5,italic:true,color:'999999',fontFace:'Arial'});
   }
   if (conObjetivo.length){
     slide.addChart(pptx.ChartType.bar, [
       {name:'Meta', labels:conObjetivo.map(u=>u.unidad), values:conObjetivo.map(u=>objetivoUnidad(u.unidad).rendObjetivo)},
       {name:'Real', labels:conObjetivo.map(u=>u.unidad), values:conObjetivo.map(u=>Math.round(u.rend*100)/100)},
-    ], {x:8.7,y:0.98,w:4.2,h:6.05,barDir:'col',showLegend:true,legendPos:'b',showTitle:true,title:'Real vs Meta',titleFontSize:11,chartColors:[GRIS,AZUL]});
+    ], {x:8.7,y:0.98,w:4.2,h:6.05,barDir:'col',showLegend:true,legendPos:'b',showTitle:true,title:'Real vs Meta',titleFontSize:11,titleColor:AZUL,titleBold:true,chartColors:[GRIS,AZUL],catAxisLabelFontSize:7,valAxisLabelFontSize:8});
   }
-  agregarPieRNS(slide, pieTxt, GRIS);
+  agregarPieRNS(slide, pieTxt, estilo, pag, totalPaginas);
 }
 
 function descargarInformeRNS(){
@@ -1385,7 +1402,7 @@ function descargarInformeRNS(){
   const rows = DATA.combustible.filter(r=>matchesFilters(r,true));
   if (!rows.length){ alert('No hay datos de Combustible para el filtro actual — ajusta los filtros e intenta de nuevo.'); return; }
 
-  const AZUL='1C4D82', MORADO='7A3B8F', GRIS='5C6B7A', ROJO='C8102E', VERDE='1E8E5A';
+  const AZUL='1C4D82', MORADO='7A3B8F', GRIS='5C6B7A', ROJO='C8102E', VERDE='1E8E5A', DORADO='C99A2E';
   const hoy = new Date();
   const MESES_LARGO = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const fechaTxt = `${hoy.getDate()} de ${MESES_LARGO[hoy.getMonth()].replace(/^./,c=>c.toUpperCase())} ${hoy.getFullYear()}`;
@@ -1411,36 +1428,88 @@ function descargarInformeRNS(){
 
   const headerOpts = {bold:true, color:'FFFFFF', fill:{color:AZUL}, fontSize:9, align:'center', valign:'middle', fontFace:'Arial'};
   const cellOpts = {fontSize:8.5, align:'center', valign:'middle', fontFace:'Arial'};
-  const totalOpts = {...cellOpts, bold:true, fill:{color:'EFEFEF'}};
-  const estilo = {AZUL, MORADO, GRIS, ROJO, VERDE, headerOpts, cellOpts, totalOpts, pieTxt};
+  const totalOpts = {...cellOpts, bold:true, color:'FFFFFF', fill:{color:AZUL}};
+  const totalPaginas = 4 + 2*grupos.length; // portada + resumen + calendario + 2xgrupo + pto-ralenti
+  const estilo = {AZUL, MORADO, GRIS, ROJO, VERDE, DORADO, headerOpts, cellOpts, totalOpts, pieTxt, totalPaginas};
+  let pag = 0;
 
-  // ---- Slide 1: portada ----
+  // ---- Slide 1: portada ejecutiva ----
+  pag++;
   const s1 = pptx.addSlide();
   s1.background = { color: AZUL };
-  s1.addImage({data:GSLI_LOGO_B64, x:4.92, y:1.05, w:3.5, h:1.66});
-  s1.addShape('line', {x:0.9,y:3.15,w:11.5,h:0,line:{color:'FFFFFF',width:0.75,transparency:60}});
-  s1.addText(`${fechaTxt}, ${sucTxt}.`, {x:0.9,y:3.35,w:11.5,h:0.5,fontSize:18,color:'FFFFFF',fontFace:'Arial',align:'center'});
-  s1.addText(`Reunión de Nivel de Servicio | Semana ${semana}-${hoy.getFullYear()} | Control Diésel`, {x:0.9,y:3.9,w:11.5,h:0.9,fontSize:24,bold:true,color:'FFFFFF',fontFace:'Arial',align:'center'});
-  s1.addText(sucTxt.toUpperCase(), {x:0.9,y:4.85,w:11.5,h:0.6,fontSize:16,bold:true,color:'F5C1C8',fontFace:'Arial',align:'center'});
-  s1.addText('GRUPO SLI', {x:0.9,y:6.85,w:6,h:0.4,fontSize:11,color:'FFFFFF',fontFace:'Arial'});
+  s1.addShape('rect', {x:0,y:6.95,w:13.333,h:0.55,fill:{color:'163D68'},line:{type:'none'}});
+  s1.addShape('roundRect', {x:4.67,y:0.85,w:4,h:1.9,rectRadius:0.08,fill:{color:'FFFFFF'},line:{type:'none'},shadow:{type:'outer',color:'000000',opacity:0.3,blur:8,offset:3,angle:90}});
+  s1.addImage({data:GSLI_LOGO_B64, x:5.17,y:1.1,w:3,h:1.4});
+  s1.addShape('line', {x:0.9,y:3.25,w:11.5,h:0,line:{color:'F5C1C8',width:1.5}});
+  s1.addText(`${fechaTxt}, ${sucTxt}.`, {x:0.9,y:3.45,w:11.5,h:0.5,fontSize:18,color:'FFFFFF',fontFace:'Arial',align:'center'});
+  s1.addText(`Reunión de Nivel de Servicio | Semana ${semana}-${hoy.getFullYear()} | Control Diésel`, {x:0.9,y:4,w:11.5,h:0.9,fontSize:25,bold:true,color:'FFFFFF',fontFace:'Arial',align:'center'});
+  s1.addShape('roundRect', {x:4.9,y:5,w:3.5,h:0.55,rectRadius:0.28,fill:{color:'C8102E'},line:{type:'none'}});
+  s1.addText(sucTxt.toUpperCase(), {x:4.9,y:5,w:3.5,h:0.55,fontSize:15,bold:true,color:'FFFFFF',fontFace:'Arial',align:'center',valign:'middle'});
+  s1.addText('GRUPO SLI', {x:0.9,y:7.03,w:6,h:0.4,fontSize:11,bold:true,color:'FFFFFF',fontFace:'Arial'});
+  s1.addText(`${pag} / ${totalPaginas}`, {x:11.6,y:7.03,w:1.33,h:0.4,fontSize:9,color:'FFFFFF',align:'right',fontFace:'Arial'});
 
-  // ---- Slide 2: calendario de reseteos (requiere carga semanal) ----
+  // ---- Slide 2: resumen ejecutivo (KPIs globales del filtro actual) ----
+  pag++;
   const s2 = pptx.addSlide();
-  agregarEncabezadoRNS(s2, 'CALENDARIO DE RESETEOS / ESTATUS DIARIO', AZUL);
-  s2.addText('Esta sección requiere información cargada con frecuencia semanal (estatus diario por unidad: activo, mantenimiento, reseteo, en viaje, patio). Aún no se ha recibido esa carga para generarla — se activa automáticamente en cuanto esté disponible.', {x:0.7,y:3.1,w:11.9,h:1.6,fontSize:14,color:'666666',italic:true,fontFace:'Arial'});
-  agregarPieRNS(s2, pieTxt, GRIS);
+  agregarEncabezadoRNS(s2, 'RESUMEN EJECUTIVO', estilo);
+  const kmTotal = porUnidad.reduce((a,u)=>a+u.km,0);
+  const ltsEcmTotal = porUnidad.reduce((a,u)=>a+u.ltsEcm,0);
+  const ltsEdenTotal = porUnidad.reduce((a,u)=>a+u.ltsEden,0);
+  const rendGlobal = ltsEcmTotal>0 ? kmTotal/ltsEcmTotal : null;
+  const costoKmActual = rendGlobal ? DIESEL_PRICE/rendGlobal : null;
+  const conObj = porUnidad.filter(u=>u.rend!=null && objetivoUnidad(u.unidad));
+  const cumpliendo = conObj.filter(u=>u.rend >= objetivoUnidad(u.unidad).rendObjetivo).length;
+  const pctCumple = conObj.length ? Math.round((cumpliendo/conObj.length)*100) : null;
+  const unidadesConDatos = porUnidad.filter(u=>u.rend!=null).length;
+
+  const tileY = 1.35, tileH = 1.55, tileW = 2.35, gap = 0.2, startX = 0.4;
+  const tiles = [
+    [String(unidadesConDatos), 'Unidades con datos', AZUL],
+    [fmtNum(kmTotal,0), 'Km recorridos (ECM)', AZUL],
+    [fmtNum(ltsEcmTotal,0), 'Lt consumidos (ECM)', AZUL],
+    [rendGlobal!=null?fmtNum(rendGlobal,2)+' km/L':'—', 'Rendimiento global', VERDE],
+    [costoKmActual!=null?fmtMoney(costoKmActual)+'/km':'—', 'Costo actual', DORADO],
+  ];
+  tiles.forEach((t,i)=>agregarKpiTileRNS(s2, startX+i*(tileW+gap), tileY, tileW, tileH, t[0], t[1], estilo, t[2]));
+
+  // segunda fila: cumplimiento de meta + desglose por sucursal (mini tabla)
+  const tileY2 = tileY+tileH+0.3;
+  agregarKpiTileRNS(s2, startX, tileY2, tileW, tileH, pctCumple!=null?pctCumple+'%':'—', `Unidades cumpliendo meta (${conObj.length} con tipo definido)`, estilo, pctCumple!=null && pctCumple>=60 ? VERDE : ROJO);
+
+  const resumenSuc = grupos.map(g=>{
+    const km = g.unidades.reduce((a,u)=>a+u.km,0);
+    const lt = g.unidades.reduce((a,u)=>a+u.ltsEcm,0);
+    const rend = lt>0 ? km/lt : null;
+    return [g.nombre, String(g.unidades.length), fmtNum(km,0), rend!=null?fmtNum(rend,2):'—'];
+  });
+  if (resumenSuc.length){
+    const filasResumen = [
+      ['Sucursal','Unidades','Km ECM','Rendimiento'].map(t=>({text:t,options:headerOpts})),
+      ...resumenSuc.map((r,i)=>r.map((v,ci)=>({text:v,options:{...cellOpts, bold:ci===0, align:ci===0?'left':'center', fill:{color:i%2?'F5F7FA':'FFFFFF'}}}))),
+    ];
+    s2.addTable(filasResumen, {x:startX+tileW+gap, y:tileY2, w: tileW*3+gap*2, h:tileH, fontSize:9, border:{type:'solid',color:'DDDDDD',pt:0.5}, autoPage:false});
+  }
+  agregarPieRNS(s2, pieTxt, estilo, pag, totalPaginas);
+
+  // ---- Slide 3: calendario de reseteos (requiere carga semanal) ----
+  pag++;
+  const s3 = pptx.addSlide();
+  agregarEncabezadoRNS(s3, 'CALENDARIO DE RESETEOS / ESTATUS DIARIO', estilo);
+  s3.addText('Esta sección requiere información cargada con frecuencia semanal (estatus diario por unidad: activo, mantenimiento, reseteo, en viaje, patio). Aún no se ha recibido esa carga para generarla — se activa automáticamente en cuanto esté disponible.', {x:0.7,y:3.1,w:11.9,h:1.6,fontSize:14,color:'666666',italic:true,fontFace:'Arial'});
+  agregarPieRNS(s3, pieTxt, estilo, pag, totalPaginas);
 
   // ---- Slides por sucursal: Km/Lt y RDC Full/Sencillo ----
   grupos.forEach(grupo=>{
-    crearSlideKmLtRNS(pptx, grupo, estilo);
-    crearSlideRDCRNS(pptx, grupo, estilo);
+    pag++; crearSlideKmLtRNS(pptx, grupo, estilo, pag);
+    pag++; crearSlideRDCRNS(pptx, grupo, estilo, pag);
   });
 
   // ---- Última slide: PTO y Ralentí (requiere campos ECM aún no capturados) ----
-  const s5 = pptx.addSlide();
-  agregarEncabezadoRNS(s5, 'PTO Y RALENTÍ', AZUL);
-  s5.addText('Esta sección requiere los campos de PTO (Toma de Fuerza) y Ralentí de los escaneos ECM (Idle Time / Idle Fuel / VSG(PTO)), que aún no se están capturando en los datos del tablero. Se activa automáticamente en cuanto estén disponibles por unidad.', {x:0.7,y:3.1,w:11.9,h:1.6,fontSize:14,color:'666666',italic:true,fontFace:'Arial'});
-  agregarPieRNS(s5, pieTxt, GRIS);
+  pag++;
+  const sF = pptx.addSlide();
+  agregarEncabezadoRNS(sF, 'PTO Y RALENTÍ', estilo);
+  sF.addText('Esta sección requiere los campos de PTO (Toma de Fuerza) y Ralentí de los escaneos ECM (Idle Time / Idle Fuel / VSG(PTO)), que aún no se están capturando en los datos del tablero. Se activa automáticamente en cuanto estén disponibles por unidad.', {x:0.7,y:3.1,w:11.9,h:1.6,fontSize:14,color:'666666',italic:true,fontFace:'Arial'});
+  agregarPieRNS(sF, pieTxt, estilo, pag, totalPaginas);
 
   const fArch = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
   pptx.writeFile({fileName:`RNS_Combustible_${sucSel==='Todas'?'Todas':sucSel.replace(/\s+/g,'_')}_semana_${semana}_${fArch}.pptx`});
