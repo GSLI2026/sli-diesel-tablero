@@ -744,26 +744,45 @@ function renderCombustible(){
   `).join('') : '<div class="empty-note">Sin datos para el filtro actual.</div>';
 
   // ---- unidades sin escaneo ECM, agrupadas por sucursal ----
-  const sinEscaneo = {};
+  const SUCS_OFICIALES_ECM = ['La Capilla','La Chona','ITG','Lázaro Cárdenas','Coatzacoalcos','Manzanillo'];
+  const sinEscaneo = {}; const unidadesPorSuc = {};
   rows.forEach(r=>{
+    unidadesPorSuc[r.sucursal] = unidadesPorSuc[r.sucursal] || new Set();
+    unidadesPorSuc[r.sucursal].add(r.unidad);
     if (!r.km_ecm){
       sinEscaneo[r.sucursal] = sinEscaneo[r.sucursal] || new Set();
       sinEscaneo[r.sucursal].add(r.unidad);
     }
   });
-  const sucsSinEscaneo = Object.keys(sinEscaneo);
-  document.getElementById('sinEscaneoBox').innerHTML = sucsSinEscaneo.length ? `
+  // Solo considera las sucursales presentes en el filtro actual (si se filtró una sola, únicamente esa)
+  const fSucValEcm = document.getElementById('fSucursal').value;
+  const sucsRelevantes = fSucValEcm!=='Todas' ? [fSucValEcm] : SUCS_OFICIALES_ECM;
+  document.getElementById('sinEscaneoBox').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
-      ${sucsSinEscaneo.map(s=>`
-        <div>
-          <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--red);font-weight:500;">(${sinEscaneo[s].size} uds sin scan)</span></div>
+      ${sucsRelevantes.map(s=>{
+        const totalUds = unidadesPorSuc[s] ? unidadesPorSuc[s].size : 0;
+        if (totalUds === 0) {
+          return `<div>
+            <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--muted);font-weight:500;">(sin registros en este periodo)</span></div>
+            <div style="font-size:12px;color:var(--muted);font-style:italic;">Sin unidades con datos de Edenred/ECM para este filtro.</div>
+          </div>`;
+        }
+        const uds = sinEscaneo[s];
+        if (!uds || !uds.size) {
+          return `<div>
+            <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--green);font-weight:500;">(0 uds sin scan de ${totalUds})</span></div>
+            <div style="font-size:12px;color:var(--muted);font-style:italic;">Todas las unidades con datos cuentan con escaneo ECM.</div>
+          </div>`;
+        }
+        return `<div>
+          <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--red);font-weight:500;">(${uds.size} de ${totalUds} uds sin scan)</span></div>
           <div style="max-height:150px;overflow-y:auto;font-size:12px;line-height:1.9;">
-            ${[...sinEscaneo[s]].sort().map(u=>`<div style="border-bottom:1px dashed var(--border);padding:1px 0;">${u}</div>`).join('')}
+            ${[...uds].sort().map(u=>`<div style="border-bottom:1px dashed var(--border);padding:1px 0;">${u}</div>`).join('')}
           </div>
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
     </div>
-  ` : '<div class="empty-note">Todas las unidades del filtro actual cuentan con escaneo ECM.</div>';
+  `;
 
   // ---- Vale Odoo vs Edenred ----
   const conVale = rows.filter(r=>r.voucher_odoo!=null);
