@@ -744,15 +744,27 @@ function renderCombustible(){
   `).join('') : '<div class="empty-note">Sin datos para el filtro actual.</div>';
 
   // ---- unidades sin escaneo ECM, agrupadas por sucursal ----
+  // Nota: si el filtro actual abarca varios meses ("Todas"), una unidad solo
+  // cuenta como "sin escaneo" si NUNCA tuvo km_ecm en ninguno de esos meses.
+  // Antes se marcaba como "sin escaneo" con que le faltara UN solo mes, lo
+  // cual mostraba unidades como sin datos aunque sí tuvieran escaneo real en
+  // otro mes del mismo filtro.
   const SUCS_OFICIALES_ECM = ['La Capilla','La Chona','ITG','Lázaro Cárdenas','Coatzacoalcos','Manzanillo'];
-  const sinEscaneo = {}; const unidadesPorSuc = {};
+  const unidadesPorSuc = {}; const conEscaneoAlgunaVez = {};
   rows.forEach(r=>{
     unidadesPorSuc[r.sucursal] = unidadesPorSuc[r.sucursal] || new Set();
     unidadesPorSuc[r.sucursal].add(r.unidad);
-    if (!r.km_ecm){
-      sinEscaneo[r.sucursal] = sinEscaneo[r.sucursal] || new Set();
-      sinEscaneo[r.sucursal].add(r.unidad);
+    if (r.km_ecm){
+      conEscaneoAlgunaVez[r.sucursal] = conEscaneoAlgunaVez[r.sucursal] || new Set();
+      conEscaneoAlgunaVez[r.sucursal].add(r.unidad);
     }
+  });
+  const sinEscaneo = {};
+  Object.keys(unidadesPorSuc).forEach(s=>{
+    const todas = unidadesPorSuc[s];
+    const conScan = conEscaneoAlgunaVez[s] || new Set();
+    const faltantes = new Set([...todas].filter(u=>!conScan.has(u)));
+    if (faltantes.size) sinEscaneo[s] = faltantes;
   });
   // Solo considera las sucursales presentes en el filtro actual (si se filtró una sola, únicamente esa)
   const fSucValEcm = document.getElementById('fSucursal').value;
