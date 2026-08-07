@@ -943,7 +943,9 @@ function renderEvaluadora(){
   charts.bono = new Chart(document.getElementById('bonoChart'), {
     type:'bar',
     data:{ labels:Object.keys(bySuc), datasets:[{label:'Bono $', data:Object.values(bySuc), backgroundColor:'#C8102E'}]},
-    options:{ responsive:true }
+    options:{ responsive:true,
+      plugins:{ datalabels:{ display:true, anchor:'end', align:'end', color:'#334', font:{size:10,weight:'700'},
+        formatter:(v)=>'$'+fmtNum(v,0) } } }
   });
 
   // score donut
@@ -956,7 +958,15 @@ function renderEvaluadora(){
   charts.score = new Chart(document.getElementById('scoreDonut'), {
     type:'doughnut',
     data:{ labels:Object.keys(buckets), datasets:[{data:Object.values(buckets), backgroundColor:['#C8102E','#e08a3c','#4c7fc9','#1e8e5a']}]},
-    options:{ responsive:true }
+    options:{ responsive:true,
+      plugins:{ legend:{ position:'right' },
+        datalabels:{ display:true, color:'#fff', font:{size:10.5,weight:'700'},
+          formatter:(v, ctx)=>{
+            const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+            const pct = total ? (v/total*100) : 0;
+            return v ? [`${v}`, `${pct.toFixed(1)}%`] : '';
+          }
+        } } }
   });
 
   // tabla
