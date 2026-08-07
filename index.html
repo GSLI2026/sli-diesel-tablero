@@ -758,30 +758,53 @@ function renderCombustible(){
   const fSucValEcm = document.getElementById('fSucursal').value;
   const sucsRelevantes = fSucValEcm!=='Todas' ? [fSucValEcm] : SUCS_OFICIALES_ECM;
   document.getElementById('sinEscaneoBox').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+    <div class="ecm-grid">
       ${sucsRelevantes.map(s=>{
         const totalUds = unidadesPorSuc[s] ? unidadesPorSuc[s].size : 0;
         if (totalUds === 0) {
-          return `<div>
-            <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--muted);font-weight:500;">(sin registros en este periodo)</span></div>
-            <div style="font-size:12px;color:var(--muted);font-style:italic;">Sin unidades con datos de Edenred/ECM para este filtro.</div>
+          return `<div class="ecm-suc-card">
+            <div class="ecm-suc-head"><span>${s}</span><span class="ecm-badge ecm-badge-muted">sin registros</span></div>
+            <div class="ecm-empty">Sin unidades con datos de Edenred/ECM para este filtro.</div>
           </div>`;
         }
         const uds = sinEscaneo[s];
         if (!uds || !uds.size) {
-          return `<div>
-            <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--green);font-weight:500;">(0 uds sin scan de ${totalUds})</span></div>
-            <div style="font-size:12px;color:var(--muted);font-style:italic;">Todas las unidades con datos cuentan con escaneo ECM.</div>
+          return `<div class="ecm-suc-card">
+            <div class="ecm-suc-head"><span>${s}</span><span class="ecm-badge ecm-badge-ok">0 de ${totalUds}</span></div>
+            <div class="ecm-empty">Todas las unidades con datos cuentan con escaneo ECM.</div>
           </div>`;
         }
-        return `<div>
-          <div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:6px;">${s} <span style="color:var(--red);font-weight:500;">(${uds.size} de ${totalUds} uds sin scan)</span></div>
-          <div style="max-height:150px;overflow-y:auto;font-size:12px;line-height:1.9;">
-            ${[...uds].sort().map(u=>`<div style="border-bottom:1px dashed var(--border);padding:1px 0;">${u}</div>`).join('')}
+        const list = [...uds].sort();
+        const scrollable = list.length > 6;
+        return `<div class="ecm-suc-card">
+          <div class="ecm-suc-head"><span>${s}</span><span class="ecm-badge ecm-badge-bad">${uds.size} de ${totalUds}</span></div>
+          <div class="ecm-list-wrap${scrollable ? ' ecm-scrollable' : ''}">
+            <div class="ecm-list">
+              ${list.map(u=>`<div class="ecm-unit">${u}</div>`).join('')}
+            </div>
           </div>
+          ${scrollable ? `<div class="ecm-scroll-hint">↕ desplaza para ver las ${list.length} unidades</div>` : ''}
         </div>`;
       }).join('')}
     </div>
+    <style>
+      .ecm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+      @media(max-width:900px){.ecm-grid{grid-template-columns:repeat(2,1fr);}}
+      @media(max-width:600px){.ecm-grid{grid-template-columns:1fr;}}
+      .ecm-suc-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fbfcfe;display:flex;flex-direction:column;}
+      .ecm-suc-head{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--navy2);color:#fff;font-weight:700;font-size:12.5px;}
+      .ecm-badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+      .ecm-badge-bad{background:rgba(200,16,46,.85);color:#fff;}
+      .ecm-badge-ok{background:rgba(30,142,90,.85);color:#fff;}
+      .ecm-badge-muted{background:rgba(255,255,255,.18);color:#e2e8ef;}
+      .ecm-empty{padding:12px;font-size:12px;color:var(--muted);font-style:italic;}
+      .ecm-list-wrap{position:relative;max-height:172px;overflow-y:auto;}
+      .ecm-list{font-size:12px;line-height:1.9;padding:4px 12px;}
+      .ecm-unit{border-bottom:1px dashed var(--border);padding:2px 0;}
+      .ecm-unit:last-child{border-bottom:none;}
+      .ecm-scrollable{box-shadow:inset 0 -14px 10px -10px rgba(0,0,0,.10);}
+      .ecm-scroll-hint{text-align:center;font-size:10.5px;color:var(--muted);padding:5px 0;border-top:1px solid var(--border);background:#f1f4f8;}
+    </style>
   `;
 
   // ---- Vale Odoo vs Edenred ----
