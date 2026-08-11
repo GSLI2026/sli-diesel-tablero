@@ -630,6 +630,16 @@ if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
   Chart.defaults.set('plugins.datalabels', { display:false });
 }
 
+// Margen operativo: hasta 3% de los Lts Edenred de la unidad se absorbe como variacion normal
+// (medicion de bomba, redondeos, etc.) antes de contar el resto como deficit real.
+// Solo aplica cuando hay deficit (diferencia negativa); nunca convierte un deficit en superavit.
+function difAjustada(r){
+  const d = r.diferencia_edenred_ecm;
+  if (d==null || d>=0) return 0;
+  const margen = (r.lts_edenred||0)*0.03;
+  return Math.min(0, d + margen);
+}
+
 function renderCombustible(){
   const rows = DATA.combustible.filter(r=>matchesFilters(r,true));
 
@@ -639,16 +649,18 @@ function renderCombustible(){
   const totalEdenred = rows.reduce((s,r)=>s+(r.lts_edenred||0),0);
   const totalEcm = rows.reduce((s,r)=>s+(r.lts_ecm||0),0);
   const negativos = rows.filter(r=>(r.diferencia_edenred_ecm||0)<0);
-  const totalDif = negativos.reduce((s,r)=>s+(r.diferencia_edenred_ecm||0),0);
-  const impacto = negativos.reduce((s,r)=>s+Math.abs(r.diferencia_edenred_ecm||0),0) * 26;
+  const totalDif = negativos.reduce((s,r)=>s+difAjustada(r),0);
+  const impacto = negativos.reduce((s,r)=>s+Math.abs(difAjustada(r)),0) * 26;
+  const su3Total = negativos.reduce((s,r)=>s+(r.lts_edenred||0)*0.03,0);
   const rendProm = rows.length ? rows.reduce((s,r)=>s+(r.rend_global_ecm||0),0)/rows.filter(r=>r.rend_global_ecm).length : 0;
   const unidadesConEcm = new Set(rows.filter(r=>r.km_ecm!=null && r.km_ecm!==undefined).map(r=>r.unidad)).size;
   const unidadesTotal = new Set(rows.map(r=>r.unidad)).size;
   const sinInfo = rows.filter(r=>!r.lts_edenred && !r.km_ecm).length;
 
   document.getElementById('combKpis').innerHTML = `
-    <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)}</div><div class="sub">Lts ECM − Lts Edenred</div></div>
-    <div class="kpi alert"><div class="label">Impacto monetario</div><div class="value">${fmtMoney(impacto)}</div><div class="sub">@$26/lt estimado sobre déficit</div></div>
+    <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)}</div><div class="sub">Lts ECM − Lts Edenred, ya neta del margen 3%</div></div>
+    <div class="kpi alert"><div class="label">Impacto monetario</div><div class="value">${fmtMoney(impacto)}</div><div class="sub">@$26/lt estimado sobre déficit neto de margen</div></div>
+    <div class="kpi"><div class="label">Su 3% (margen operativo)</div><div class="value">${fmtNum(su3Total,0)}</div><div class="sub">3% de Lts Edenred de unidades con déficit, absorbido antes de contar</div></div>
     <div class="kpi"><div class="label">Litros Edenred</div><div class="value">${fmtNum(totalEdenred,0)}</div><div class="sub">Total del filtro actual</div></div>
     <div class="kpi"><div class="label">Litros ECM</div><div class="value">${fmtNum(totalEcm,0)}</div><div class="sub">Lecturas ECM reales</div></div>
     <div class="kpi"><div class="label">Rendimiento prom.</div><div class="value">${rendProm? fmtNum(rendProm,2):'—'}</div><div class="sub">km/lt (ECM)</div></div>
@@ -661,22 +673,21 @@ function renderCombustible(){
   // ---- agregados por sucursal ----
   const SUCURSALES_OFICIALES = ['La Capilla','La Chona','ITG','Lázaro Cárdenas','Coatzacoalcos','Manzanillo'];
   const bySuc = {};
-  SUCURSALES_OFICIALES.forEach(s=>{ bySuc[s] = {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0}; });
+  SUCURSALES_OFICIALES.forEach(s=>{ bySuc[s] = {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0, su3Sum:0}; });
   rows.forEach(r=>{
-    const s = bySuc[r.sucursal] = bySuc[r.sucursal] || {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0};
+    const s = bySuc[r.sucursal] = bySuc[r.sucursal] || {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0, su3Sum:0};
     s.edenred += r.lts_edenred||0; s.ecm += r.lts_ecm||0;
     s.unidades.add(r.unidad);
     if (r.km_ecm) s.conEcm.add(r.unidad);
-    if ((r.diferencia_edenred_ecm||0) < 0) s.difNegSum += r.diferencia_edenred_ecm;
+    if ((r.diferencia_edenred_ecm||0) < 0){ s.difNegSum += difAjustada(r); s.su3Sum += (r.lts_edenred||0)*0.03; }
   });
   // Respeta el orden oficial; si el filtro de sucursal ya aisló una sola, solo se muestra esa.
   const fSucVal = document.getElementById('fSucursal').value;
   const sucursales = fSucVal!=='Todas' ? [fSucVal] : SUCURSALES_OFICIALES;
-  const su3 = (v)=>v*0.03;
   const sucCalc = sucursales.map(s=>{
-    const v = bySuc[s] || {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0};
+    const v = bySuc[s] || {edenred:0, ecm:0, unidades:new Set(), conEcm:new Set(), difNegSum:0, su3Sum:0};
     const dif = v.ecm - v.edenred;
-    const su3v = su3(v.edenred);
+    const su3v = v.su3Sum;
     const difLts = v.difNegSum;
     return {sucursal:s, ...v, dif, su3v, difLts, impacto: Math.abs(difLts)*26, sinEcm: v.conEcm.size===0};
   });
