@@ -866,10 +866,10 @@ function renderCombustible(){
 
   // ---- observaciones automaticas ----
   const obs = [];
-  if (impacto>0) obs.push(`<div class="rank"><span class="pill no" style="margin-right:8px;">IMPACTO</span>Impacto monetario estimado de <b>${fmtMoney(impacto)}</b> por déficit de litros en la flotilla filtrada.</div>`);
+  if (impacto>0) obs.push(`<div class="rank"><span><span class="pill no" style="margin-right:8px;">IMPACTO</span>Impacto monetario estimado por déficit de litros en la flotilla filtrada</span><span style="text-align:right;white-space:nowrap;padding-left:16px;"><b style="color:var(--red);">${fmtMoney(impacto)}</b></span></div>`);
   const sinEcmSucs = sucCalc.filter(s=>s.sinEcm).map(s=>s.sucursal);
-  if (sinEcmSucs.length) obs.push(`<div class="rank"><span class="pill no" style="margin-right:8px;">SIN ECM</span>${sinEcmSucs.length} sucursal(es) sin escaneo ECM (${sinEcmSucs.join(', ')}) — toda su carga Edenred se registra como déficit por política de auditoría.</div>`);
-  if (rendProm) obs.push(`<div class="rank"><span class="pill si" style="margin-right:8px;">RENDIMIENTO</span>Rendimiento promedio de flota: <b>${fmtNum(rendProm,2)} km/lt</b>.</div>`);
+  if (sinEcmSucs.length) obs.push(`<div class="rank"><span><span class="pill no" style="margin-right:8px;">SIN ECM</span>${sinEcmSucs.length} sucursal(es) sin escaneo ECM en el periodo — su carga Edenred se registra como déficit por política de auditoría</span><span style="text-align:right;padding-left:16px;"><b>${sinEcmSucs.join(', ')}</b></span></div>`);
+  if (rendProm) obs.push(`<div class="rank"><span><span class="pill si" style="margin-right:8px;">RENDIMIENTO</span>Rendimiento promedio de la flota en el periodo filtrado</span><span style="text-align:right;white-space:nowrap;padding-left:16px;"><b style="color:#1e8e5a;">${fmtNum(rendProm,2)} km/lt</b></span></div>`);
   document.getElementById('observacionesBox').innerHTML = obs.length ? obs.join('') : '<div class="empty-note">Sin observaciones para el filtro actual.</div>';
 
   // ---- ranking top5 mejor rendimiento / top10 mayor desviacion ----
