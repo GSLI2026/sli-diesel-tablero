@@ -667,10 +667,13 @@ function scanStatus(r){
 
 function scanCount(r){
   // Numero de escaneos ECM detectados para ese mes/unidad.
-  // Cuando la nota lo documenta explicitamente (ej. "Suma de 2 escaneos limpios") se usa ese numero.
-  // Si hay nota pero sin conteo explicito (un solo escaneo mencionado, limpio o sucio) se cuenta 1.
-  // Para meses historicos sin nota (Enero-Julio) no se capturo el detalle de cuantos escaneos hubo;
-  // se asume 1 escaneo cuando hay Lts ECM (heuristica, no un conteo verificado registro por registro).
+  // Si se tiene fechas_escaneo (conteo real, verificado contra los archivos de OneDrive) se usa ese numero,
+  // sin importar si el mes se desglosa por semana o se muestra en una sola celda.
+  // Si no hay fechas_escaneo: cuando la nota lo documenta explicitamente (ej. "Suma de 2 escaneos limpios")
+  // se usa ese numero; si solo menciona un escaneo (limpio o sucio) se cuenta 1.
+  // Para meses/unidades sin nota ni fechas_escaneo no se capturo el detalle; se asume 1 escaneo cuando hay
+  // Lts ECM (heuristica, no un conteo verificado registro por registro).
+  if (r.fechas_escaneo && r.fechas_escaneo.length) return r.fechas_escaneo.length;
   const nota = r.nota || '';
   const m = nota.match(/(\d+)\s*escaneos?/i);
   if (m) return parseInt(m[1], 10);
@@ -697,10 +700,16 @@ function renderScan(){
   const rows = DATA.combustible.filter(r=>matchesFilters(r,true));
   const mesesPresentes = mesSort(uniqueSorted(rows.map(r=>r.mes.charAt(0).toUpperCase()+r.mes.slice(1))));
 
-  // Meses para los que al menos una unidad tiene fecha exacta de escaneo capturada -> se dividen en semanas 1-4.
-  const mesesDivididos = new Set(mesesPresentes.filter(m =>
-    rows.some(r => (r.mes.charAt(0).toUpperCase()+r.mes.slice(1))===m && r.fechas_escaneo && r.fechas_escaneo.length)
-  ));
+  // Solo el mes en curso (el mas reciente del dataset completo, no solo del filtro actual) se divide en
+  // semanas 1-4 -- esto es para dar seguimiento preventivo dentro del mes que todavia esta corriendo.
+  // Los meses ya cerrados se muestran en una sola columna (como antes): ya pasaron, desglosarlos por
+  // semana ahi no cambia nada que se pueda prevenir, solo agrega ruido reactivo a un mes historico.
+  const mesActualGlobal = mesSort(uniqueSorted(DATA.combustible.map(r=>r.mes.charAt(0).toUpperCase()+r.mes.slice(1)))).pop();
+  const mesesDivididos = new Set(
+    mesesPresentes.includes(mesActualGlobal) &&
+    rows.some(r => (r.mes.charAt(0).toUpperCase()+r.mes.slice(1))===mesActualGlobal && r.fechas_escaneo && r.fechas_escaneo.length)
+      ? [mesActualGlobal] : []
+  );
 
   const unidadInfo = {};
   rows.forEach(r=>{
