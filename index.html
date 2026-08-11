@@ -349,14 +349,15 @@
     <div class="kpis" id="scanKpis"></div>
     <div class="empty-note" style="margin-top:10px;">
       <b>Política:</b> Todo mes se evalúa completo aunque tenga 1, 2 o 3 escaneos ECM · Un escaneo solo se usa como cifra del mes si su ventana de viaje (Trip Time) no cruza el mes anterior; si cruza, se aplica respaldo Edenred + Samsara · Sin escaneo ECM utilizable = 100% Edenred se registra como déficit por política de auditoría ·
-      <span style="background:#d7f0dd;padding:1px 7px;border-radius:3px;font-weight:700;color:#155c33;">Verde</span> = escaneo limpio usado (Lts ECM del mes) ·
+      El número en cada celda es la cantidad de escaneos ECM del mes (pasa el mouse para ver litros y detalle) ·
+      <span style="background:#d7f0dd;padding:1px 7px;border-radius:3px;font-weight:700;color:#155c33;">Verde</span> = escaneo(s) limpio(s) usados como cifra del mes ·
       <span style="background:#fde7c0;padding:1px 7px;border-radius:3px;font-weight:700;color:#8a5a00;">Ámbar ⚠</span> = hubo escaneo pero cruza mes anterior, no se usó ·
       <span style="background:#fbdadf;padding:1px 7px;border-radius:3px;font-weight:700;color:#8a1c2b;">Rosa 0</span> = sin escaneo ECM ese mes.
     </div>
 
     <div class="section-title">MATRIZ DE ESCANEOS POR UNIDAD Y MES</div>
     <div class="card">
-      <div class="hd">CUMPLIMIENTO ECM — LITROS DEL ESCANEO USADO POR MES</div>
+      <div class="hd">CUMPLIMIENTO ECM — NÚMERO DE ESCANEOS POR MES</div>
       <div class="bd" style="overflow-x:auto;">
         <table id="scanTable" style="border-collapse:collapse;width:100%;font-size:11.5px;">
           <thead><tr id="scanTableHead"></tr></thead>
@@ -655,6 +656,20 @@ function scanStatus(r){
   return 'sin';
 }
 
+function scanCount(r){
+  // Numero de escaneos ECM detectados para ese mes/unidad.
+  // Cuando la nota lo documenta explicitamente (ej. "Suma de 2 escaneos limpios") se usa ese numero.
+  // Si hay nota pero sin conteo explicito (un solo escaneo mencionado, limpio o sucio) se cuenta 1.
+  // Para meses historicos sin nota (Enero-Julio) no se capturo el detalle de cuantos escaneos hubo;
+  // se asume 1 escaneo cuando hay Lts ECM (heuristica, no un conteo verificado registro por registro).
+  const nota = r.nota || '';
+  const m = nota.match(/(\d+)\s*escaneos?/i);
+  if (m) return parseInt(m[1], 10);
+  if (r.lts_ecm!=null) return 1;
+  if (/escaneo/i.test(nota)) return 1;
+  return 0;
+}
+
 function renderScan(){
   const rows = DATA.combustible.filter(r=>matchesFilters(r,true));
   const mesesPresentes = mesSort(uniqueSorted(rows.map(r=>r.mes.charAt(0).toUpperCase()+r.mes.slice(1))));
@@ -663,7 +678,7 @@ function renderScan(){
   rows.forEach(r=>{
     const mesCap = r.mes.charAt(0).toUpperCase()+r.mes.slice(1);
     unidadInfo[r.unidad] = unidadInfo[r.unidad] || {sucursal:r.sucursal, meses:{}};
-    unidadInfo[r.unidad].meses[mesCap] = {status: scanStatus(r), lts_ecm:r.lts_ecm, nota:r.nota||''};
+    unidadInfo[r.unidad].meses[mesCap] = {status: scanStatus(r), lts_ecm:r.lts_ecm, count: scanCount(r), nota:r.nota||''};
   });
   const unidades = Object.keys(unidadInfo).sort((a,b)=>{
     const sa=unidadInfo[a].sucursal||'', sb=unidadInfo[b].sucursal||'';
@@ -719,10 +734,11 @@ function renderScan(){
         const st = info.meses[m];
         const tdBase = 'padding:6px;text-align:center;border-bottom:1px solid var(--border);';
         if (!st) return `<td style="${tdBase}color:var(--muted);background:#f3f5f8;">—</td>`;
-        const title = (st.nota||'').replace(/"/g,'&quot;');
-        if (st.status==='limpio') return `<td title="${title}" style="${tdBase}background:#d7f0dd;color:#155c33;font-weight:700;">${fmtNum(st.lts_ecm,0)}</td>`;
-        if (st.status==='sucio') return `<td title="${title}" style="${tdBase}background:#fde7c0;color:#8a5a00;font-weight:700;">⚠</td>`;
-        return `<td style="${tdBase}background:#fbdadf;color:#8a1c2b;font-weight:700;">0</td>`;
+        const litrosInfo = st.lts_ecm!=null ? ` (${fmtNum(st.lts_ecm,0)} lt ECM)` : '';
+        const title = ((st.nota||'') + litrosInfo).replace(/"/g,'&quot;');
+        if (st.status==='limpio') return `<td title="${title}" style="${tdBase}background:#d7f0dd;color:#155c33;font-weight:700;">${st.count}</td>`;
+        if (st.status==='sucio') return `<td title="${title}" style="${tdBase}background:#fde7c0;color:#8a5a00;font-weight:700;">${st.count} ⚠</td>`;
+        return `<td title="${title}" style="${tdBase}background:#fbdadf;color:#8a1c2b;font-weight:700;">0</td>`;
       }).join('');
       return `<tr>
         <td style="padding:6px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);">${info.sucursal}</td>
