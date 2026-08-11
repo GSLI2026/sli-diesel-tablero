@@ -138,6 +138,7 @@
 <nav class="tabs">
   <button id="tabBtnComb" class="active" onclick="setTab('comb')">⛽ Combustible</button>
   <button id="tabBtnEval" onclick="setTab('eval')">🧭 Evaluadora de Operadores</button>
+  <button id="tabBtnScan" onclick="setTab('scan')">📡 Seguimiento ECM</button>
 </nav>
 
 <div class="filters">
@@ -338,6 +339,29 @@
         <div style="text-align:center;padding:10px;border-top:1px solid var(--border);" id="evalTableToggleWrap">
           <button class="clear" style="background:var(--navy);color:#fff;border-color:var(--navy);" id="evalTableToggleBtn" onclick="toggleEvalTable()">▼ Ver más</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SEGUIMIENTO ECM ============ -->
+  <section id="viewScan" style="display:none;">
+    <div class="section-title">SEGUIMIENTO DE ESCANEOS ECM <span style="font-weight:400;opacity:.75;">— Apego a política de auditoría</span></div>
+    <div class="kpis" id="scanKpis"></div>
+    <div class="empty-note" style="margin-top:10px;">
+      <b>Política:</b> Todo mes se evalúa completo aunque tenga 1, 2 o 3 escaneos ECM · Un escaneo solo se usa como cifra del mes si su ventana de viaje (Trip Time) no cruza el mes anterior; si cruza, se aplica respaldo Edenred + Samsara · Sin escaneo ECM utilizable = 100% Edenred se registra como déficit por política de auditoría ·
+      <span style="background:#d7f0dd;padding:1px 7px;border-radius:3px;font-weight:700;color:#155c33;">Verde</span> = escaneo limpio usado (Lts ECM del mes) ·
+      <span style="background:#fde7c0;padding:1px 7px;border-radius:3px;font-weight:700;color:#8a5a00;">Ámbar ⚠</span> = hubo escaneo pero cruza mes anterior, no se usó ·
+      <span style="background:#fbdadf;padding:1px 7px;border-radius:3px;font-weight:700;color:#8a1c2b;">Rosa 0</span> = sin escaneo ECM ese mes.
+    </div>
+
+    <div class="section-title">MATRIZ DE ESCANEOS POR UNIDAD Y MES</div>
+    <div class="card">
+      <div class="hd">CUMPLIMIENTO ECM — LITROS DEL ESCANEO USADO POR MES</div>
+      <div class="bd" style="overflow-x:auto;">
+        <table id="scanTable" style="border-collapse:collapse;width:100%;font-size:11.5px;">
+          <thead><tr id="scanTableHead"></tr></thead>
+          <tbody id="scanTableBody"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -556,8 +580,10 @@ function setTab(t){
   state.tab = t;
   document.getElementById('tabBtnComb').classList.toggle('active', t==='comb');
   document.getElementById('tabBtnEval').classList.toggle('active', t==='eval');
+  document.getElementById('tabBtnScan').classList.toggle('active', t==='scan');
   document.getElementById('viewComb').style.display = t==='comb' ? '' : 'none';
   document.getElementById('viewEval').style.display = t==='eval' ? '' : 'none';
+  document.getElementById('viewScan').style.display = t==='scan' ? '' : 'none';
   refreshUnidadOperadorOptions();
   render();
 }
@@ -615,6 +641,97 @@ function unidadesBySucursalHTML(rows){
         </div>
       </div>`;
     }).join('') + `</div>`;
+}
+
+function scanStatus(r){
+  // Politica: un escaneo solo cuenta como "usado" en el mes si su Trip Time no cruza el mes anterior.
+  // Cuando eso pasa (detectado via nota), el escaneo se recibio pero no se usa -> "sucio" (ambar).
+  // Si no hay nota de cruce y hay Lts ECM, el mes tiene escaneo limpio usado -> "limpio" (verde).
+  // Si no hay Lts ECM en absoluto, no hubo escaneo utilizable ese mes -> "sin" (rosa).
+  const nota = r.nota || '';
+  const esSucio = /cruza|no se us[oó]/i.test(nota);
+  if (esSucio) return 'sucio';
+  if (r.lts_ecm!=null) return 'limpio';
+  return 'sin';
+}
+
+function renderScan(){
+  const rows = DATA.combustible.filter(r=>matchesFilters(r,true));
+  const mesesPresentes = mesSort(uniqueSorted(rows.map(r=>r.mes.charAt(0).toUpperCase()+r.mes.slice(1))));
+
+  const unidadInfo = {};
+  rows.forEach(r=>{
+    const mesCap = r.mes.charAt(0).toUpperCase()+r.mes.slice(1);
+    unidadInfo[r.unidad] = unidadInfo[r.unidad] || {sucursal:r.sucursal, meses:{}};
+    unidadInfo[r.unidad].meses[mesCap] = {status: scanStatus(r), lts_ecm:r.lts_ecm, nota:r.nota||''};
+  });
+  const unidades = Object.keys(unidadInfo).sort((a,b)=>{
+    const sa=unidadInfo[a].sucursal||'', sb=unidadInfo[b].sucursal||'';
+    return sa!==sb ? sa.localeCompare(sb) : a.localeCompare(b);
+  });
+
+  function racha(u){
+    let r=0;
+    for (let i=mesesPresentes.length-1;i>=0;i--){
+      const st = unidadInfo[u].meses[mesesPresentes[i]];
+      if (st && st.status==='sin') r++; else break;
+    }
+    return r;
+  }
+  const riesgo = unidades.filter(u=>racha(u)>=2);
+
+  const mesActual = mesesPresentes[mesesPresentes.length-1] || null;
+  const rowsMesActual = mesActual ? unidades.filter(u=>unidadInfo[u].meses[mesActual]) : [];
+  const conEscaneoMesActual = rowsMesActual.filter(u=>unidadInfo[u].meses[mesActual].status==='limpio');
+  const pctMesActual = rowsMesActual.length ? Math.round(conEscaneoMesActual.length/rowsMesActual.length*100) : 0;
+
+  let limpio=0, sucio=0, sin=0;
+  unidades.forEach(u=> mesesPresentes.forEach(m=>{
+    const st = unidadInfo[u].meses[m];
+    if (!st) return;
+    if (st.status==='limpio') limpio++;
+    else if (st.status==='sucio') sucio++;
+    else sin++;
+  }));
+  const totalCeldas = limpio+sucio+sin;
+  const pctHistorico = totalCeldas ? Math.round(limpio/totalCeldas*100) : 0;
+
+  document.getElementById('scanKpis').innerHTML = `
+    <div class="kpi"><div class="label">Escaneo limpio — ${mesActual||'—'}</div><div class="value">${pctMesActual}%</div><div class="sub">${conEscaneoMesActual.length} de ${rowsMesActual.length} unidades con ECM usado en ${mesActual||'el mes más reciente'}</div></div>
+    <div class="kpi"><div class="label">Cumplimiento histórico</div><div class="value">${pctHistorico}%</div><div class="sub">% de meses-unidad con escaneo limpio usado (${mesesPresentes[0]||'—'}–${mesActual||'—'})</div></div>
+    <div class="kpi${sucio>0?' alert':''}"><div class="label">Escaneos fuera de política</div><div class="value" style="${sucio>0?'color:var(--red);':''}">${sucio}</div><div class="sub">Recibidos pero cruzan mes anterior — no se usan, respaldo Edenred + Samsara</div></div>
+    <div class="kpi${riesgo.length>0?' alert':''}"><div class="label">Unidades en riesgo</div><div class="value" style="${riesgo.length>0?'color:var(--red);':''}">${riesgo.length}</div><div class="sub">2+ meses consecutivos sin escaneo ECM utilizable${riesgo.length?': '+riesgo.slice(0,6).join(', ')+(riesgo.length>6?'…':''):''}</div></div>
+  `;
+
+  const head = document.getElementById('scanTableHead');
+  head.innerHTML = '<th style="text-align:left;padding:8px 10px;">Sucursal</th><th style="text-align:left;padding:8px 10px;">Unidad</th>'
+    + mesesPresentes.map(m=>`<th style="padding:8px 6px;text-align:center;">${m}</th>`).join('')
+    + '<th style="padding:8px 10px;text-align:center;">Racha sin escaneo</th>';
+
+  const body = document.getElementById('scanTableBody');
+  if (!unidades.length){
+    body.innerHTML = `<tr><td colspan="${mesesPresentes.length+3}"><div class="empty-note">Sin unidades para el filtro actual.</div></td></tr>`;
+  } else {
+    body.innerHTML = unidades.map(u=>{
+      const info = unidadInfo[u];
+      const r = racha(u);
+      const cells = mesesPresentes.map(m=>{
+        const st = info.meses[m];
+        const tdBase = 'padding:6px;text-align:center;border-bottom:1px solid var(--border);';
+        if (!st) return `<td style="${tdBase}color:var(--muted);background:#f3f5f8;">—</td>`;
+        const title = (st.nota||'').replace(/"/g,'&quot;');
+        if (st.status==='limpio') return `<td title="${title}" style="${tdBase}background:#d7f0dd;color:#155c33;font-weight:700;">${fmtNum(st.lts_ecm,0)}</td>`;
+        if (st.status==='sucio') return `<td title="${title}" style="${tdBase}background:#fde7c0;color:#8a5a00;font-weight:700;">⚠</td>`;
+        return `<td style="${tdBase}background:#fbdadf;color:#8a1c2b;font-weight:700;">0</td>`;
+      }).join('');
+      return `<tr>
+        <td style="padding:6px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);">${info.sucursal}</td>
+        <td style="padding:6px 10px;font-weight:700;border-bottom:1px solid var(--border);">${u}</td>
+        ${cells}
+        <td style="padding:6px 10px;text-align:center;border-bottom:1px solid var(--border);${r>=2?'color:var(--red);font-weight:800;':'color:var(--muted);'}">${r>0?r:'—'}</td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 function catBadge(r){
@@ -1131,7 +1248,9 @@ function render(){
         c.replaceWith(box);
       });
     }
-    if (state.tab==='comb') renderCombustible(); else renderEvaluadora();
+    if (state.tab==='comb') renderCombustible();
+    else if (state.tab==='scan') renderScan();
+    else renderEvaluadora();
   } catch(e){
     console.error('Error al renderizar el tablero:', e);
     const existing = document.getElementById('renderErrorBanner');
