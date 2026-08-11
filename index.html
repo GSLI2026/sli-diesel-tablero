@@ -811,8 +811,8 @@ function renderScan(){
           // El mes se divide en semanas por otras unidades, pero esta no tiene fecha exacta capturada -> se
           // muestra el dato del mes completo, sin desglosar (no se conoce en que semana ocurrio).
           const tituloSinFecha = title + ' [fecha exacta del escaneo no disponible, se muestra el mes completo]';
-          if (st.status==='limpio') return `<td colspan="4" title="${tituloSinFecha}" style="${tdBase}background:#d7f0dd;color:#155c33;font-weight:700;">${st.count} <span style="font-size:9.5px;font-weight:400;">(mes)</span></td>`;
-          if (st.status==='sucio') return `<td colspan="4" title="${tituloSinFecha}" style="${tdBase}background:#fde7c0;color:#8a5a00;font-weight:700;">${st.count} ⚠ <span style="font-size:9.5px;font-weight:400;">(mes)</span></td>`;
+          if (st.status==='limpio') return `<td colspan="4" title="${tituloSinFecha}" style="${tdBase}background:#d7f0dd;color:#155c33;font-weight:700;">${st.count}</td>`;
+          if (st.status==='sucio') return `<td colspan="4" title="${tituloSinFecha}" style="${tdBase}background:#fde7c0;color:#8a5a00;font-weight:700;">${st.count} ⚠</td>`;
           return `<td colspan="4" title="${tituloSinFecha}" style="${tdBase}background:#fbdadf;color:#8a1c2b;font-weight:700;">0</td>`;
         }
 
