@@ -885,7 +885,7 @@ function renderCombustible(){
     <div class="kpi"><div class="label">Rendimiento prom.</div><div class="value">${rendProm? fmtNum(rendProm,2):'—'}</div><div class="sub">km/lt (ECM)</div></div>
     <div class="kpi"><div class="label">Número de ECM</div><div class="value">${unidadesConEcm}</div><div class="sub">Unidades con lectura ECM real</div></div>
     <div class="kpi"><div class="label">Número de Unidades</div><div class="value">${unidadesTotal}</div><div class="sub">Unidades únicas en el filtro actual</div></div>
-    ${(document.getElementById('fSucursal').value==='Todas' || document.getElementById('fSucursal').value==='Manzanillo') ? `
+    ${((document.getElementById('fSucursal').value==='Todas' || document.getElementById('fSucursal').value==='Manzanillo') && document.getElementById('fUnidad').value==='Todas') ? `
     <div class="kpi"><div class="label">❄️ Diesel Rifer (Manzanillo)</div><div class="value">${fmtNum(RIFER_MANZANILLO.lts,0)} lt</div><div class="sub">${fmtMoney(RIFER_MANZANILLO.monto)} · No proviene del ECM del tractocamión</div></div>` : ''}
   `;
 
