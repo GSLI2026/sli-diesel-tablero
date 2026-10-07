@@ -875,6 +875,7 @@ function renderCombustible(){
   const unidadesConEcm = new Set(rows.filter(r=>r.km_ecm!=null && r.km_ecm!==undefined).map(r=>r.unidad)).size;
   const unidadesTotal = new Set(rows.map(r=>r.unidad)).size;
   const sinInfo = rows.filter(r=>!r.lts_edenred && !r.km_ecm).length;
+  const catalogTotalKpi = catalogUnitCount();
 
   document.getElementById('combKpis').innerHTML = `
     <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)}</div><div class="sub">Lts ECM − Lts Edenred, ya neta del margen 3%</div></div>
@@ -883,8 +884,8 @@ function renderCombustible(){
     <div class="kpi"><div class="label">Litros Edenred</div><div class="value">${fmtNum(totalEdenred,0)}</div><div class="sub">Total del filtro actual</div></div>
     <div class="kpi"><div class="label">Litros ECM</div><div class="value">${fmtNum(totalEcm,0)}</div><div class="sub">Lecturas ECM reales</div></div>
     <div class="kpi"><div class="label">Rendimiento prom.</div><div class="value">${rendProm? fmtNum(rendProm,2):'—'}</div><div class="sub">km/lt (ECM)</div></div>
-    <div class="kpi"><div class="label">Número de ECM</div><div class="value">${unidadesConEcm}</div><div class="sub">Unidades con lectura ECM real</div></div>
-    <div class="kpi"><div class="label">Número de Unidades</div><div class="value">${unidadesTotal}</div><div class="sub">Unidades únicas en el filtro actual</div></div>
+    <div class="kpi"><div class="label">Número de ECM</div><div class="value">${catalogTotalKpi? Math.round(100*unidadesConEcm/catalogTotalKpi):0}%</div><div class="sub">${unidadesConEcm} de ${catalogTotalKpi} unidades del catálogo con lectura ECM real</div></div>
+    <div class="kpi"><div class="label">Número de Unidades</div><div class="value">${catalogTotalKpi? Math.round(100*unidadesTotal/catalogTotalKpi):0}%</div><div class="sub">${unidadesTotal} de ${catalogTotalKpi} unidades del catálogo con datos en el filtro actual</div></div>
     ${((document.getElementById('fSucursal').value==='Todas' || document.getElementById('fSucursal').value==='Manzanillo') && document.getElementById('fUnidad').value==='Todas') ? `
     <div class="kpi"><div class="label">❄️ Diesel Rifer (Manzanillo)</div><div class="value">${fmtNum(RIFER_MANZANILLO.lts,0)} lt</div><div class="sub">${fmtMoney(RIFER_MANZANILLO.monto)} · No proviene del ECM del tractocamión</div></div>` : ''}
   `;
