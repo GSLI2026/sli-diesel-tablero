@@ -878,8 +878,8 @@ function renderCombustible(){
   const catalogTotalKpi = catalogUnitCount();
 
   document.getElementById('combKpis').innerHTML = `
-    <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)}</div><div class="sub">Lts ECM − Lts Edenred, ya neta del margen 3%</div></div>
-    <div class="kpi alert"><div class="label">Impacto monetario</div><div class="value">${fmtMoney(impacto)}</div><div class="sub">@$26/lt estimado sobre déficit neto de margen</div></div>
+    <div class="kpi alert"><div class="label">▼ Diferencia en Lts</div><div class="value">${fmtNum(totalDif,0)} <span style="font-size:15px;">(${totalEdenred? fmtNum(100*totalDif/totalEdenred,1):'0'}%)</span></div><div class="sub">Lts ECM − Lts Edenred, ya neta del margen 3% · % vs. Litros Edenred totales</div></div>
+    <div class="kpi alert"><div class="label">Impacto monetario</div><div class="value">${fmtMoney(impacto)} <span style="font-size:15px;">(${totalEdenred? fmtNum(100*impacto/(totalEdenred*26),1):'0'}%)</span></div><div class="sub">@$26/lt estimado sobre déficit neto de margen · % vs. valor total estimado del diesel Edenred</div></div>
     <div class="kpi"><div class="label">Su 3% (margen operativo)</div><div class="value">${fmtNum(su3Total,0)}</div><div class="sub">3% de Lts Edenred de unidades con déficit, absorbido antes de contar</div></div>
     <div class="kpi"><div class="label">Litros Edenred</div><div class="value">${fmtNum(totalEdenred,0)}</div><div class="sub">Total del filtro actual</div></div>
     <div class="kpi"><div class="label">Litros ECM</div><div class="value">${fmtNum(totalEcm,0)}</div><div class="sub">Lecturas ECM reales</div></div>
